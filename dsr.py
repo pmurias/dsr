@@ -118,7 +118,7 @@ for i in itertools.count(1):
         discover = False
         target = int(sys.argv[1])
 
-        requestId = 0
+        requestId = random.randint(0,1000)
 
         print "REQUESTING ROUTE",myId,target
 
