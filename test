@@ -1,0 +1,1 @@
+PYTHONPATH=`pwd` python t/miniframe.py
