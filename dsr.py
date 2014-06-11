@@ -5,29 +5,33 @@
 from dsr.miniframe import MiniFrame 
 import iinic
 
-import sys, itertools, os, struct
+import sys, itertools, os, struct, random
 
 nic = iinic.NIC(iinic.NetComm())
 
 # Zmień prędkość transmisji z domyślnej na 600 bitów na sekundę
 nic.set_bitrate(nic.BITRATE_600)
 
-# Tutaj określamy wiadomość, jaką będziemy wysyłali oraz co jaki czas
-# chcemy ją wysyłać. Czas jest określony w mikrosekundach i będzie pilnowany
-# przez timer na karcie sieciowej (co się za chwilę okaże).
-#print sys.argv[1]
+#Czas jest określony w mikrosekundach i będzie pilnowany
 
-#msg = '0123456789ABCD01234567890'+ str(os.getpid())
-msg = '01234'+ str(os.getpid())
-delay = 1000000 * 3
+delay = 1000000 
 
 ftype = 'a' 
 
 print "OUR ID ",nic.get_uniq_id()
 
+allohaNumber = 7 
+
 class MAC:
     def sendFrame(self,frame):
-        nic.tx(frame.pack()).await()
+        now = nic.get_approx_timing()
+        for i in itertools.count(1):
+            if random.randint(0, allohaNumber - 1) == 0:
+                print "sending msg after", i
+                nic.tx(frame.pack()).await()
+                break
+            else:
+                nic.timing(now + delay * i)
 
 mac = MAC()
 
@@ -40,6 +44,11 @@ replyType = 'b'
 messageType = 'c'
 
 discover = True
+
+myId = nic.get_uniq_id()
+
+seenRequest = {}
+seenReply = {}
 
 # To jest pętla od i = 1 do nieskończoności
 for i in itertools.count(1):
@@ -56,7 +65,7 @@ for i in itertools.count(1):
         if frame.valid:
             if frame.frameType == requestType:
 
-                print "ROUTE REQUEST"
+#                print "ROUTE REQUEST"
 
 
                 request = struct.unpack_from(routeRequestHeader,frame.payload)
@@ -67,16 +76,16 @@ for i in itertools.count(1):
 
                 routes = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
-                print routes
+                #print routes
 
-                myId = nic.get_uniq_id()
 
                 if target == myId:
                     replyFrame = MiniFrame(replyType, frame.payload)
-                    print "STARTING A ROUTE REPLY"
+                    print "FOUND THE MACHINE"
                     mac.sendFrame(replyFrame)
-                else: 
-                    print "PASSING THE ROUTE ON"
+                elif requestId not in seenRequest:
+                    seenRequest[requestId] = True
+                    print "PASSING THE ROUTE ON, target: ",target 
                     payload = struct.pack(routeRequestHeader, initiator, target, requestId, routeLen+1)
                     payload += packedRoutes + struct.pack('H', myId)
                     frame = MiniFrame(requestType, payload)
@@ -84,26 +93,37 @@ for i in itertools.count(1):
 
 
             elif frame.frameType == replyType:
-              print "GOT A ROUTE REPLY"
-              reply = struct.unpack_from(routeReplyHeader,frame.payload)
-              
+                reply = struct.unpack_from(routeReplyHeader,frame.payload)
+                
 
-              (initiator, target, requestId, routeLen) = reply
+                (initiator, target, replyId, routeLen) = reply
 
-              print reply
+                packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
+
+                route = struct.unpack_from("%dH" % routeLen, packedRoutes)
+
+                if initiator == myId:
+                    print "FOUND THE ROUTE", route
+
+                elif myId in route and replyId not in seenReply:
+                    seenReply[replyId] = True
+                    print "PASSING THE REPLY ON", route, ", target:", target
+                    replyFrame = MiniFrame(replyType, frame.payload)
+                    mac.sendFrame(replyFrame)
+
+#                print route
+                #print reply
 
     if len(sys.argv) == 2 and discover:
         discover = False
-        origin = nic.get_uniq_id()
         target = int(sys.argv[1])
 
         requestId = 0
 
-        print "REQUESTING ROUTE",origin,target
-
-        nic.timing(delay * i)
+        print "REQUESTING ROUTE",myId,target
 
 
-        frame = MiniFrame('a',struct.pack(routeRequestHeader, origin, target, requestId, 0))
+
+        frame = MiniFrame(requestType,struct.pack(routeRequestHeader, myId, target, requestId, 0))
         mac.sendFrame(frame)
 
