@@ -38,6 +38,14 @@ class TestMiniFrame(unittest.TestCase):
         self.assertFalse(MiniFrame.unpack('a' + chr(2) + 'x').valid)
         self.assertFalse(MiniFrame.unpack('a' + chr(2) + 'xy').valid)
 
+    def test_packing_and_unpacking_with_trailing_stuff(self):
+        frame = MiniFrame('x','0123abc')
+        packed = frame.pack()
+
+        unpacked = MiniFrame.unpack(packed + 'xyz' * 100)
+        self.assertEqual(unpacked.frameType,'x')
+        self.assertEqual(unpacked.payload,'0123abc')
+
 
 
 if __name__ == '__main__':
