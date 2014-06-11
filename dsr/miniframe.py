@@ -13,9 +13,22 @@ def computeCRC_8(data, pattern = '0xD5'):
     return x
 
 class MiniFrame:
+
+    @classmethod
+    def invalid(self):
+        frame = MiniFrame(None,None)
+        frame.valid = False
+        return frame
+
     @classmethod
     def unpack(self,packed):
+        if packed == "":
+            return MiniFrame.invalid()
+
         length = ord(packed[0])
+
+        if len(packed) < length+1:
+            return MiniFrame.invalid()
         content = packed[2:2+length]
 
 

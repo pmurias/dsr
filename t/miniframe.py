@@ -30,6 +30,14 @@ class TestMiniFrame(unittest.TestCase):
 
         self.assertFalse(MiniFrame.unpack(wrong).valid)
 
+        self.assertFalse(MiniFrame.unpack(wrong).valid)
+
+    def test_unpacks_of_invalids(self):
+        self.assertFalse(MiniFrame.unpack('').valid)
+        self.assertFalse(MiniFrame.unpack('a').valid)
+        self.assertFalse(MiniFrame.unpack('a' + chr(2) + 'x').valid)
+        self.assertFalse(MiniFrame.unpack('a' + chr(2) + 'xy').valid)
+
 
 
 if __name__ == '__main__':
