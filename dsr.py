@@ -9,10 +9,7 @@ import sys, itertools, os, struct, random
 
 nic = iinic.NIC(iinic.NetComm())
 
-# Zmień prędkość transmisji z domyślnej na 600 bitów na sekundę
 nic.set_bitrate(nic.BITRATE_600)
-
-#Czas jest określony w mikrosekundach i będzie pilnowany
 
 delay = 1000000 
 
@@ -50,13 +47,7 @@ myId = nic.get_uniq_id()
 seenRequest = {}
 seenReply = {}
 
-# To jest pętla od i = 1 do nieskończoności
 for i in itertools.count(1):
-#    print os.getpid(),"-> sending"
-    # "poczekaj, aż twój zegarek będzie pokazywał wartość delay * i"
-    # "wyślij wiadomość msg"
-    # oraz
-    # "zatrzymaj mój program dopóki wiadomość nie zostanie wysłana"
 
 
     data = nic.rx(deadline=0)
@@ -64,8 +55,6 @@ for i in itertools.count(1):
         frame = MiniFrame.unpack(data.bytes)
         if frame.valid:
             if frame.frameType == requestType:
-
-#                print "ROUTE REQUEST"
 
 
                 request = struct.unpack_from(routeRequestHeader,frame.payload)
@@ -75,8 +64,6 @@ for i in itertools.count(1):
                 packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
 
                 routes = struct.unpack_from("%dH" % routeLen, packedRoutes)
-
-                #print routes
 
 
                 if target == myId:
@@ -110,9 +97,6 @@ for i in itertools.count(1):
                     print "PASSING THE REPLY ON", route, ", target:", target
                     replyFrame = MiniFrame(replyType, frame.payload)
                     mac.sendFrame(replyFrame)
-
-#                print route
-                #print reply
 
     if len(sys.argv) == 2 and discover:
         discover = False
