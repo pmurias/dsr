@@ -7,15 +7,21 @@ import iinic
 
 import sys, itertools, os, struct, random
 
-nic = iinic.NIC(iinic.NetComm())
+nic = iinic.NIC(iinic.NetComm(host='localhost'))
 
+x = int(sys.argv[1])
+y = int(sys.argv[2])
+
+nic.set_pos(x,y)
 nic.set_bitrate(nic.BITRATE_600)
 
-delay = 1000000 
+#delay = 1000000 
+delay =  1000 
 
 ftype = 'a' 
 
 print "OUR ID ",nic.get_uniq_id()
+print "X:",x,'Y:',y
 
 allohaNumber = 7 
 
@@ -98,9 +104,9 @@ for i in itertools.count(1):
                     replyFrame = MiniFrame(replyType, frame.payload)
                     mac.sendFrame(replyFrame)
 
-    if len(sys.argv) == 2 and discover:
+    if len(sys.argv) == 4 and discover:
         discover = False
-        target = int(sys.argv[1])
+        target = int(sys.argv[3])
 
         requestId = random.randint(0,1000)
 
