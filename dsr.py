@@ -44,9 +44,12 @@ routeReplyHeader = routeRequestHeader
 
 msgHeader = routeRequestHeader
 
+ackHeader = 'HH';
+
 requestType = 'a'
 replyType = 'b'
 msgType = 'c'
+ackType = 'k'
 
 discover = True
 
@@ -80,7 +83,7 @@ for i in itertools.count(1):
 
                 if target == myId:
                     replyFrame = MiniFrame(replyType, frame.payload)
-                    print "FOUND THE ROUTE", prettyRoute(initiator, route, target, True)
+                    print "TARGET - FOUND THE ROUTE", prettyRoute(initiator, route, target, True)
                     mac.sendFrame(replyFrame)
                 elif requestId not in seenRequest:
                     seenRequest[requestId] = True
@@ -90,6 +93,9 @@ for i in itertools.count(1):
                     frame = MiniFrame(requestType, payload)
                     mac.sendFrame(frame)
 
+            elif frame.frameType == ackType:
+                (msgId, ackFrom)  = struct.unpack_from(ackHeader,frame.payload)
+                print "GOT ACK FROM", ackFrom
 
             elif frame.frameType == replyType:
                 reply = struct.unpack_from(routeReplyHeader,frame.payload)
@@ -102,7 +108,7 @@ for i in itertools.count(1):
                 route = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
                 if initiator == myId:
-                    print "FOUND ROUTE", prettyRoute(initiator, route, target, True)
+                    print "SOURCE - FOUND ROUTE", prettyRoute(initiator, route, target, True)
 
 
                     # Send a msg
@@ -132,9 +138,12 @@ for i in itertools.count(1):
                    if target == myId:
                        print "GOT MSG",msgPayload
                    elif myId in route:
-                       print "FORWARDING",prettyRoute(initiator, route, target, True),msgPayload
+                       print "FORWARDING MSG",prettyRoute(initiator, route, target, True),msgPayload
                        msgFrame = MiniFrame(msgType, frame.payload)
                        mac.sendFrame(msgFrame)
+
+                       ackFrame = MiniFrame(ackType, struct.pack(ackHeader, msgId, myId))
+                       mac.sendFrame(ackFrame)
                    else:
                        print "IGNORING MSG",prettyRoute(initiator, route, target, True),msgPayload
 
