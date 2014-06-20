@@ -157,12 +157,13 @@ for i in itertools.count(1):
                     if msgId not in seenMsg:
                          print "GOT MSG",msgPayload
                 elif myId in route:
+                    msgFrame = MiniFrame(msgType, frame.payload)
+
                     def check():
                         if msgId in ack and nextHop in ack[msgId]:
                              print "WE HAVE AN ACK"
                         else:
-                             print "NO ACK FROM %d FOR %d TRYING AGAIN" % (nextHop,msgId) 
-                             msgFrame = MiniFrame(msgType, frame.payload)
+                             print "NO ACK FROM %d FOR %d TRYING AGAIN" % (nextHop,msgId)
                              mac.sendFrame(msgFrame)
                              queue.add(nic.get_approx_timing()+1000000, check)
                     if msgId not in seenMsg:
@@ -170,7 +171,6 @@ for i in itertools.count(1):
                         nextHop = target if len(route) == nextHopIndex else route[nextHopIndex]
 
                         print "next hop: %d FORWARDING MSG to " % nextHop,prettyRoute(initiator, route, target, True),msgPayload
-                        msgFrame = MiniFrame(msgType, frame.payload)
                         mac.sendFrame(msgFrame)
                         queue.add(nic.get_approx_timing()+1000000, check)
 
