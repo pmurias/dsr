@@ -174,7 +174,6 @@ for i in itertools.count(1):
 
                 ack[msgId][ackFrom] = True
                     
-#                print "GOT ACK FROM", ackFrom
 
             elif frame.frameType == replyType:
                 reply = struct.unpack_from(routeReplyHeader,frame.payload)
@@ -227,12 +226,6 @@ for i in itertools.count(1):
 
                 seenMsg[msgId] = True
 
-#    if queue.ready(nic.get_approx_timing()):
-#    print "Executing"
-#    else:
-#        print "."
-#else:
-#        print queue.jobs
     queue.execute(nic.get_approx_timing())
 
 
