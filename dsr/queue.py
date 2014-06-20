@@ -9,10 +9,20 @@ class Queue:
         for job in self.jobs:
             if job.time <= time:
                 return job
+
     def execute(self,time):
-        while self.ready(time) is not None:
-            ready = self.ready(time)
-            self.jobs.remove(ready)
-            ready.cb()
+        execute = []
+        keep = []
+
+        for job in self.jobs:
+            if job.time <= time:
+                execute.append(job)
+            else:
+                keep.append(job)
+
+        self.jobs = keep
+
+        for job in execute:
+            job.cb()
     def add(self,time,cb):
         self.jobs.append(Job(time,cb))

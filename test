@@ -1,1 +1,2 @@
-PYTHONPATH=`pwd` python t/miniframe.py
+#PYTHONPATH=`pwd` python t/miniframe.py
+PYTHONPATH=`pwd` python t/queue.py

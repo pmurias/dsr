@@ -30,6 +30,8 @@ allohaNumber = 7
 class MAC:
     def __init__(self):
         self.nextMsg = 0
+    def sendFrameRepeatedly(self,frame):
+        self.sendFrame(frame)
     def sendFrame(self,frame,offset=0):
         now = max(nic.get_approx_timing(), self.nextMsg)
         for i in itertools.count(1):
@@ -56,7 +58,6 @@ replyType = 'b'
 msgType = 'c'
 ackType = 'k'
 
-discover = True
 
 myId = nic.get_uniq_id()
 
@@ -68,6 +69,8 @@ ack = {}
 
 queue = Queue()
 
+routeCache = {}
+
 def prettyRoute(initiator, route, target, complete = False):
     return " -> ".join(map(lambda x: str(x),[initiator] + list(route) + ([] if complete else ["..."]) +  [target]))
 
@@ -78,7 +81,7 @@ def sendMsg(msgFrame, msgId, route, target):
         else:
              print "NO ACK FROM %d FOR %d TRYING AGAIN" % (nextHop,msgId)
              mac.sendFrame(msgFrame)
-             queue.add(nic.get_approx_timing()+1000000, check)
+             queue.add(nic.get_approx_timing()+2000000, check)
 
     nextHop = findNextHop(route, myId)
 
@@ -95,13 +98,50 @@ def findNextHop(route,myId):
     else:
         return route[nextHopIndex]
 
+def routeAndSend():
+    print "REQUESTING ROUTE %d -> %d" % (myId,target)
+    requestId = random.randint(0,1000)
+    seenRequest[requestId] = True
+    frame = MiniFrame(requestType,struct.pack(routeRequestHeader, myId, target, requestId, 0))
+    mac.sendFrame(frame)
+    queue.add(0, tickOnceRouted)    
+
+def tickOnceRouted():
+    if target in routeCache:
+        queue.add(0, lambda: tick(0))    
+    else:
+        queue.add(0, tickOnceRouted)    
+        
+
+target = int(sys.argv[3]) if len(sys.argv) == 4 else None
+
+def tick(i):
+    print "ticking..."
+#    queue.add(nic.get_approx_timing()+5 * 1000000, lambda: tick(i+1))
+
+
+    msgId = random.randint(0,1000)
+
+
+    packedRoute = ""
+    for r in routeCache[target]:
+        packedRoute += struct.pack("H",r)
+    routeLen = len(routeCache[target])
+    frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World "+str(i))
+    sendMsg(frame, msgId, route, target)
+
+
+
+
+if target is not None:
+    queue.add(0, routeAndSend)    
+
 for i in itertools.count(1):
-
-
     data = nic.rx(deadline=0)
     if data is not None:
         frame = MiniFrame.unpack(data.bytes)
         if frame.valid:
+#            print "got frame", frame.frameType
             if frame.frameType == requestType:
 
 
@@ -148,21 +188,15 @@ for i in itertools.count(1):
 
                 if initiator == myId:
                     print "SOURCE - FOUND ROUTE", prettyRoute(initiator, route, target, True)
-
-
-                    # Send a msg
-
-                    msgId = random.randint(0,1000)
-
-
-                    frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World")
-                    sendMsg(frame, msgId, route, target)
+                    routeCache[target] = route
 
                 elif myId in route and replyId not in seenReply:
                     seenReply[replyId] = True
                     print "ROUTE REPLY", prettyRoute(initiator, route, target, True)
                     replyFrame = MiniFrame(replyType, frame.payload)
-                    mac.sendFrame(replyFrame)
+                    mac.sendFrameRepeatedly(replyFrame)
+                else:
+                    print "IGNORING REPLY", prettyRoute(initiator, route, target, True)
 
             elif frame.frameType == msgType:
                 reply = struct.unpack_from(msgHeader,frame.payload)
@@ -180,7 +214,7 @@ for i in itertools.count(1):
 
                 if target == myId:
                     if msgId not in seenMsg:
-                         print "GOT MSG",msgPayload
+                         print "GOT MSG \033[92m"+msgPayload+"\033[0m"
                 elif myId in route:
                     msgFrame = MiniFrame(msgType, frame.payload)
                     nextHop = findNextHop(route, myId)
@@ -193,20 +227,13 @@ for i in itertools.count(1):
 
                 seenMsg[msgId] = True
 
+#    if queue.ready(nic.get_approx_timing()):
+#    print "Executing"
+#    else:
+#        print "."
+#else:
+#        print queue.jobs
     queue.execute(nic.get_approx_timing())
 
-    if len(sys.argv) == 4 and discover:
-        discover = False
-        target = int(sys.argv[3])
 
-        requestId = random.randint(0,1000)
-
-        seenRequest[requestId] = True
-
-        print "REQUESTING ROUTE %d -> %d" % (myId,target)
-
-
-
-        frame = MiniFrame(requestType,struct.pack(routeRequestHeader, myId, target, requestId, 0))
-        mac.sendFrame(frame)
 
