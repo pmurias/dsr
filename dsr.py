@@ -33,8 +33,9 @@ class MAC:
         self.nextMsg = 0
     def sendFrameRepeatedly(self,frame):
         self.sendFrame(frame)
+        self.sendFrame(frame, 1000000 / 4)
     def sendFrame(self,frame,offset=0):
-        now = max(nic.get_approx_timing(), self.nextMsg)
+        now = max(nic.get_approx_timing(), self.nextMsg) + offset
         for i in itertools.count(1):
             if random.randint(0, allohaNumber - 1) == 0:
 #                print "sending msg after", i
@@ -157,14 +158,14 @@ for i in itertools.count(1):
                 if target == myId:
                     replyFrame = MiniFrame(replyType, frame.payload)
                     print "TARGET - FOUND THE ROUTE", prettyRoute(initiator, route, target, True)
-                    mac.sendFrame(replyFrame)
+                    mac.sendFrameRepeatedly(replyFrame)
                 elif requestId not in seenRequest:
                     seenRequest[requestId] = True
                     print "ADDING %d TO THE ROUTE" % myId, prettyRoute(initiator, list(route) + [myId] , target)
                     payload = struct.pack(routeRequestHeader, initiator, target, requestId, routeLen+1)
                     payload += packedRoutes + struct.pack('H', myId)
                     frame = MiniFrame(requestType, payload)
-                    mac.sendFrame(frame)
+                    mac.sendFrameRepeatedly(frame)
 
             elif frame.frameType == ackType:
                 (msgId, ackFrom)  = struct.unpack_from(ackHeader,frame.payload)
