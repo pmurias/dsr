@@ -53,6 +53,9 @@ myId = nic.get_uniq_id()
 seenRequest = {}
 seenReply = {}
 
+def prettyRoute(initiator, route, target, complete = False):
+    return " -> ".join(map(lambda x: str(x),[initiator] + list(route) + ([] if complete else ["..."]) +  [target]))
+
 for i in itertools.count(1):
 
 
@@ -69,16 +72,16 @@ for i in itertools.count(1):
 
                 packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
 
-                routes = struct.unpack_from("%dH" % routeLen, packedRoutes)
+                route = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
 
                 if target == myId:
                     replyFrame = MiniFrame(replyType, frame.payload)
-                    print "FOUND THE MACHINE"
+                    print "FOUND THE ROUTE", prettyRoute(initiator, route, target, True)
                     mac.sendFrame(replyFrame)
                 elif requestId not in seenRequest:
                     seenRequest[requestId] = True
-                    print "PASSING THE ROUTE ON, target: ",target 
+                    print "ADDING %d TO THE ROUTE" % myId, prettyRoute(initiator, list(route) + [myId] , target)
                     payload = struct.pack(routeRequestHeader, initiator, target, requestId, routeLen+1)
                     payload += packedRoutes + struct.pack('H', myId)
                     frame = MiniFrame(requestType, payload)
@@ -96,11 +99,10 @@ for i in itertools.count(1):
                 route = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
                 if initiator == myId:
-                    print "FOUND THE ROUTE", route
-
+                    print "FOUND ROUTE", prettyRoute(initiator, route, target, True)
                 elif myId in route and replyId not in seenReply:
                     seenReply[replyId] = True
-                    print "PASSING THE REPLY ON", route, ", target:", target
+                    print "ROUTE REPLY", prettyRoute(initiator, route, target, True)
                     replyFrame = MiniFrame(replyType, frame.payload)
                     mac.sendFrame(replyFrame)
 
@@ -110,7 +112,9 @@ for i in itertools.count(1):
 
         requestId = random.randint(0,1000)
 
-        print "REQUESTING ROUTE",myId,target
+        seenRequest[requestId] = True
+
+        print "REQUESTING ROUTE %d -> %d" % (myId,target)
 
 
 
