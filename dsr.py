@@ -37,7 +37,7 @@ class MAC:
         now = max(nic.get_approx_timing(), self.nextMsg)
         for i in itertools.count(1):
             if random.randint(0, allohaNumber - 1) == 0:
-                print "sending msg after", i
+#                print "sending msg after", i
                 nic.tx(frame.pack()).await()
                 break
             else:
@@ -128,7 +128,7 @@ def tick(i):
     for r in routeCache[target]:
         packedRoute += struct.pack("H",r)
     routeLen = len(routeCache[target])
-    frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World "+str(i))
+    frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoute+"Hello World "+str(i))
     sendMsg(frame, msgId, route, target)
 
 
