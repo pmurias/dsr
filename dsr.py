@@ -26,14 +26,17 @@ print "X:",x,'Y:',y
 allohaNumber = 7 
 
 class MAC:
+    def __init__(self):
+        self.nextMsg = 0
     def sendFrame(self,frame,offset=0):
-        now = nic.get_approx_timing() + offset
+        now = max(nic.get_approx_timing(), self.nextMsg)
         for i in itertools.count(1):
             if random.randint(0, allohaNumber - 1) == 0:
                 print "sending msg after", i
                 nic.tx(frame.pack()).await()
                 break
             else:
+                self.nextMsg = now + delay * i
                 nic.timing(now + delay * i)
 
 mac = MAC()
