@@ -71,6 +71,30 @@ queue = Queue()
 def prettyRoute(initiator, route, target, complete = False):
     return " -> ".join(map(lambda x: str(x),[initiator] + list(route) + ([] if complete else ["..."]) +  [target]))
 
+def sendMsg(msgFrame, msgId, route, target):
+    def check():
+        if msgId in ack and nextHop in ack[msgId]:
+             print "WE HAVE AN ACK"
+        else:
+             print "NO ACK FROM %d FOR %d TRYING AGAIN" % (nextHop,msgId)
+             mac.sendFrame(msgFrame)
+             queue.add(nic.get_approx_timing()+1000000, check)
+
+    nextHop = findNextHop(route, myId)
+
+
+    mac.sendFrame(msgFrame)
+    queue.add(nic.get_approx_timing()+1000000, check)
+
+def findNextHop(route,myId):
+    if myId not in route:
+        return route[0]
+    nextHopIndex = list(route).index(myId)+1
+    if nextHopIndex == len(route):
+        return target
+    else:
+        return route[nextHopIndex]
+
 for i in itertools.count(1):
 
 
@@ -129,9 +153,10 @@ for i in itertools.count(1):
                     # Send a msg
 
                     msgId = random.randint(0,1000)
+
+
                     frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World")
-                    mac.sendFrame(frame)
-                    
+                    sendMsg(frame, msgId, route, target)
 
                 elif myId in route and replyId not in seenReply:
                     seenReply[replyId] = True
@@ -158,6 +183,7 @@ for i in itertools.count(1):
                          print "GOT MSG",msgPayload
                 elif myId in route:
                     msgFrame = MiniFrame(msgType, frame.payload)
+                    nextHop = findNextHop(route, myId)
 
                     def check():
                         if msgId in ack and nextHop in ack[msgId]:
@@ -167,8 +193,7 @@ for i in itertools.count(1):
                              mac.sendFrame(msgFrame)
                              queue.add(nic.get_approx_timing()+1000000, check)
                     if msgId not in seenMsg:
-                        nextHopIndex = list(route).index(myId)+1
-                        nextHop = target if len(route) == nextHopIndex else route[nextHopIndex]
+                        nextHop = findNextHop(route,myId)
 
                         print "next hop: %d FORWARDING MSG to " % nextHop,prettyRoute(initiator, route, target, True),msgPayload
                         mac.sendFrame(msgFrame)
