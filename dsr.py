@@ -26,8 +26,8 @@ print "X:",x,'Y:',y
 allohaNumber = 7 
 
 class MAC:
-    def sendFrame(self,frame):
-        now = nic.get_approx_timing()
+    def sendFrame(self,frame,offset=0):
+        now = nic.get_approx_timing() + offset
         for i in itertools.count(1):
             if random.randint(0, allohaNumber - 1) == 0:
                 print "sending msg after", i
@@ -42,9 +42,11 @@ routeRequestHeader = 'HHHB';
 
 routeReplyHeader = routeRequestHeader
 
+msgHeader = routeRequestHeader
+
 requestType = 'a'
 replyType = 'b'
-messageType = 'c'
+msgType = 'c'
 
 discover = True
 
@@ -52,6 +54,7 @@ myId = nic.get_uniq_id()
 
 seenRequest = {}
 seenReply = {}
+seenMsg = {}
 
 def prettyRoute(initiator, route, target, complete = False):
     return " -> ".join(map(lambda x: str(x),[initiator] + list(route) + ([] if complete else ["..."]) +  [target]))
@@ -94,17 +97,46 @@ for i in itertools.count(1):
 
                 (initiator, target, replyId, routeLen) = reply
 
-                packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
+                packedRoutes = frame.payload[struct.calcsize(routeReplyHeader):]
 
                 route = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
                 if initiator == myId:
                     print "FOUND ROUTE", prettyRoute(initiator, route, target, True)
+
+
+                    # Send a msg
+
+                    msgId = random.randint(0,1000)
+                    frame = MiniFrame(msgType,struct.pack(routeRequestHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World")
+                    mac.sendFrame(frame)
+                    
+
                 elif myId in route and replyId not in seenReply:
                     seenReply[replyId] = True
                     print "ROUTE REPLY", prettyRoute(initiator, route, target, True)
                     replyFrame = MiniFrame(replyType, frame.payload)
                     mac.sendFrame(replyFrame)
+
+            elif frame.frameType == msgType:
+                reply = struct.unpack_from(msgHeader,frame.payload)
+
+                (initiator, target, msgId, routeLen) = reply
+                packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
+                route = struct.unpack_from("%dH" % routeLen, packedRoutes)
+
+                msgPayload = frame.payload[struct.calcsize(msgHeader)+struct.calcsize("%dH" % routeLen):]
+
+                if msgId not in seenRequest:
+                   seenRequest[msgId] = True
+                   if target == myId:
+                       print "GOT MSG",msgPayload
+                   elif myId in route:
+                       print "FORWARDING",prettyRoute(initiator, route, target, True),msgPayload
+                       msgFrame = MiniFrame(msgType, frame.payload)
+                       mac.sendFrame(msgFrame)
+                   else:
+                       print "IGNORING MSG",prettyRoute(initiator, route, target, True),msgPayload
 
     if len(sys.argv) == 4 and discover:
         discover = False
