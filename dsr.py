@@ -18,7 +18,7 @@ nic.set_pos(x,y)
 nic.set_bitrate(nic.BITRATE_600)
 
 #delay = 1000000 
-delay =  1000 
+delay =  100000 
 
 ftype = 'a' 
 
@@ -129,7 +129,7 @@ for i in itertools.count(1):
                     # Send a msg
 
                     msgId = random.randint(0,1000)
-                    frame = MiniFrame(msgType,struct.pack(routeRequestHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World")
+                    frame = MiniFrame(msgType,struct.pack(msgHeader, myId, target, msgId, routeLen)+packedRoutes+"Hello World")
                     mac.sendFrame(frame)
                     
 
@@ -143,38 +143,41 @@ for i in itertools.count(1):
                 reply = struct.unpack_from(msgHeader,frame.payload)
 
                 (initiator, target, msgId, routeLen) = reply
-                packedRoutes = frame.payload[struct.calcsize(routeRequestHeader):]
+                packedRoutes = frame.payload[struct.calcsize(msgHeader):]
                 route = struct.unpack_from("%dH" % routeLen, packedRoutes)
 
                 msgPayload = frame.payload[struct.calcsize(msgHeader)+struct.calcsize("%dH" % routeLen):]
 
-                if msgId not in seenRequest:
-                   seenRequest[msgId] = True
-                   if target == myId:
-                       print "GOT MSG",msgPayload
-                   elif myId in route:
-                       nextHopIndex = list(route).index(myId)+1
-                       nextHop = target if len(route) == nextHopIndex else route[nextHopIndex]
+                if target == myId or myId in route:
+                    print "SENDING ACK FOR %d FROM %d" % (msgId,myId)
+                    ackFrame = MiniFrame(ackType, struct.pack(ackHeader, msgId, myId))
+                    mac.sendFrame(ackFrame)
 
-                       print "next hop: %d FORWARDING MSG to " % nextHop,prettyRoute(initiator, route, target, True),msgPayload
-                       msgFrame = MiniFrame(msgType, frame.payload)
-                       mac.sendFrame(msgFrame)
+                if target == myId:
+                    if msgId not in seenMsg:
+                         print "GOT MSG",msgPayload
+                elif myId in route:
+                    def check():
+                        if msgId in ack and nextHop in ack[msgId]:
+                             print "WE HAVE AN ACK"
+                        else:
+                             print "NO ACK FROM %d FOR %d TRYING AGAIN" % (nextHop,msgId) 
+                             msgFrame = MiniFrame(msgType, frame.payload)
+                             mac.sendFrame(msgFrame)
+                             queue.add(nic.get_approx_timing()+1000000, check)
+                    if msgId not in seenMsg:
+                        nextHopIndex = list(route).index(myId)+1
+                        nextHop = target if len(route) == nextHopIndex else route[nextHopIndex]
 
-                       def check():
-                           if msgId in ack and nextHop in ack[msgId]:
-                                print "WE HAVE AN ACK"
-                           else:
-                                print "NO ACK TRYING AGAIN"
-                                msgFrame = MiniFrame(msgType, frame.payload)
-                                mac.sendFrame(msgFrame)
-                                queue.add(nic.get_approx_timing()+1000000, check)
+                        print "next hop: %d FORWARDING MSG to " % nextHop,prettyRoute(initiator, route, target, True),msgPayload
+                        msgFrame = MiniFrame(msgType, frame.payload)
+                        mac.sendFrame(msgFrame)
+                        queue.add(nic.get_approx_timing()+1000000, check)
 
-                       queue.add(nic.get_approx_timing()+1000000, check)
+                else:
+                    print "IGNORING MSG",prettyRoute(initiator, route, target, True),msgPayload
 
-                       ackFrame = MiniFrame(ackType, struct.pack(ackHeader, msgId, myId))
-                       mac.sendFrame(ackFrame)
-                   else:
-                       print "IGNORING MSG",prettyRoute(initiator, route, target, True),msgPayload
+                seenMsg[msgId] = True
 
     queue.execute(nic.get_approx_timing())
 
