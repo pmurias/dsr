@@ -15,7 +15,8 @@ x = int(sys.argv[1])
 y = int(sys.argv[2])
 
 nic.set_pos(x,y)
-nic.set_bitrate(nic.BITRATE_600)
+nic.set_bitrate(nic.BITRATE_28800)
+
 
 #delay = 1000000 
 delay =  100000 
@@ -117,7 +118,7 @@ target = int(sys.argv[3]) if len(sys.argv) == 4 else None
 
 def tick(i):
     print "ticking..."
-#    queue.add(nic.get_approx_timing()+5 * 1000000, lambda: tick(i+1))
+    queue.add(nic.get_approx_timing()+5 * 1000000, lambda: tick(i+1))
 
 
     msgId = random.randint(0,1000)
