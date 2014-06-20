@@ -117,7 +117,6 @@ def tickOnceRouted():
 target = int(sys.argv[3]) if len(sys.argv) == 4 else None
 
 def tick(i):
-    print "ticking..."
     queue.add(nic.get_approx_timing()+5 * 1000000, lambda: tick(i+1))
 
 
