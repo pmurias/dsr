@@ -3,6 +3,8 @@
 
 
 from dsr.miniframe import MiniFrame 
+from dsr.queue import Queue
+
 import iinic
 
 import sys, itertools, os, struct, random
@@ -62,6 +64,10 @@ seenRequest = {}
 seenReply = {}
 seenMsg = {}
 
+ack = {}
+
+queue = Queue()
+
 def prettyRoute(initiator, route, target, complete = False):
     return " -> ".join(map(lambda x: str(x),[initiator] + list(route) + ([] if complete else ["..."]) +  [target]))
 
@@ -98,7 +104,13 @@ for i in itertools.count(1):
 
             elif frame.frameType == ackType:
                 (msgId, ackFrom)  = struct.unpack_from(ackHeader,frame.payload)
-                print "GOT ACK FROM", ackFrom
+                
+                if msgId not in ack:
+                    ack[msgId] = {}
+
+                ack[msgId][ackFrom] = True
+                    
+#                print "GOT ACK FROM", ackFrom
 
             elif frame.frameType == replyType:
                 reply = struct.unpack_from(routeReplyHeader,frame.payload)
@@ -141,14 +153,30 @@ for i in itertools.count(1):
                    if target == myId:
                        print "GOT MSG",msgPayload
                    elif myId in route:
-                       print "FORWARDING MSG",prettyRoute(initiator, route, target, True),msgPayload
+                       nextHopIndex = list(route).index(myId)+1
+                       nextHop = target if len(route) == nextHopIndex else route[nextHopIndex]
+
+                       print "next hop: %d FORWARDING MSG to " % nextHop,prettyRoute(initiator, route, target, True),msgPayload
                        msgFrame = MiniFrame(msgType, frame.payload)
                        mac.sendFrame(msgFrame)
+
+                       def check():
+                           if msgId in ack and nextHop in ack[msgId]:
+                                print "WE HAVE AN ACK"
+                           else:
+                                print "NO ACK TRYING AGAIN"
+                                msgFrame = MiniFrame(msgType, frame.payload)
+                                mac.sendFrame(msgFrame)
+                                queue.add(nic.get_approx_timing()+1000000, check)
+
+                       queue.add(nic.get_approx_timing()+1000000, check)
 
                        ackFrame = MiniFrame(ackType, struct.pack(ackHeader, msgId, myId))
                        mac.sendFrame(ackFrame)
                    else:
                        print "IGNORING MSG",prettyRoute(initiator, route, target, True),msgPayload
+
+    queue.execute(nic.get_approx_timing())
 
     if len(sys.argv) == 4 and discover:
         discover = False
